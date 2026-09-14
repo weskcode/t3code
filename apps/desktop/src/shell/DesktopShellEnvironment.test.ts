@@ -123,7 +123,10 @@ describe("DesktopShellEnvironment", () => {
 
       assert.equal(commands.length, 1);
       assert.equal(commands[0]?._tag === "StandardCommand" ? commands[0].command : "", "/bin/zsh");
-      assert.equal(env.PATH, "/opt/homebrew/bin:/usr/bin:/Users/test/.local/bin");
+      assert.equal(
+        env.PATH,
+        "/opt/homebrew/bin:/usr/bin:/opt/homebrew/sbin:/usr/local/bin:/Users/test/.local/bin",
+      );
       assert.equal(env.SSH_AUTH_SOCK, "/tmp/secretive.sock");
       assert.equal(env.HOMEBREW_PREFIX, "/opt/homebrew");
     }),
@@ -147,7 +150,7 @@ describe("DesktopShellEnvironment", () => {
           }),
       });
 
-      assert.equal(env.PATH, "/opt/homebrew/bin:/usr/bin");
+      assert.equal(env.PATH, "/opt/homebrew/bin:/usr/bin:/opt/homebrew/sbin:/usr/local/bin");
       assert.equal(env.SSH_AUTH_SOCK, "/tmp/inherited.sock");
     }),
   );
@@ -295,7 +298,116 @@ describe("DesktopShellEnvironment", () => {
       });
 
       assert.deepEqual(commands, ["/opt/homebrew/bin/nu", "/bin/zsh", "/bin/launchctl"]);
-      assert.equal(env.PATH, "/opt/homebrew/bin:/usr/bin");
+      assert.equal(env.PATH, "/opt/homebrew/bin:/usr/bin:/opt/homebrew/sbin:/usr/local/bin");
+    }),
+  );
+
+  it.effect(
+    "falls back to known POSIX CLI directories when the login shell probe finds no PATH on macOS",
+    () =>
+      Effect.gen(function* () {
+        const env: NodeJS.ProcessEnv = {
+          SHELL: "/bin/zsh",
+          HOME: "/Users/testuser",
+          PATH: "/usr/bin",
+        };
+
+        yield* runShellEnvironment({
+          env,
+          platform: "darwin",
+          handler: () => "",
+        });
+
+        assert.equal(
+          env.PATH,
+          [
+            "/Users/testuser/.local/bin",
+            "/Users/testuser/.claude/local",
+            "/Users/testuser/.opencode/bin",
+            "/opt/homebrew/bin",
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",
+            "/usr/bin",
+          ].join(":"),
+        );
+      }),
+  );
+
+  it.effect("falls back to known POSIX CLI directories including Linuxbrew on linux", () =>
+    Effect.gen(function* () {
+      const env: NodeJS.ProcessEnv = {
+        SHELL: "/bin/bash",
+        HOME: "/home/testuser",
+        PATH: "/usr/bin",
+      };
+
+      yield* runShellEnvironment({
+        env,
+        platform: "linux",
+        handler: () => "",
+      });
+
+      assert.equal(
+        env.PATH,
+        [
+          "/home/testuser/.local/bin",
+          "/home/testuser/.claude/local",
+          "/home/testuser/.opencode/bin",
+          "/home/linuxbrew/.linuxbrew/bin",
+          "/usr/bin",
+        ].join(":"),
+      );
+    }),
+  );
+
+  it.effect(
+    "appends and dedupes known POSIX CLI directories even when the shell probe already returns a PATH",
+    () =>
+      Effect.gen(function* () {
+        const env: NodeJS.ProcessEnv = {
+          SHELL: "/bin/zsh",
+          HOME: "/Users/testuser",
+          PATH: "/Users/testuser/.opencode/bin:/usr/bin",
+        };
+
+        yield* runShellEnvironment({
+          env,
+          platform: "darwin",
+          handler: () => envOutput({ PATH: "/opt/homebrew/bin:/usr/bin" }),
+        });
+
+        assert.equal(
+          env.PATH,
+          [
+            "/opt/homebrew/bin",
+            "/usr/bin",
+            "/Users/testuser/.local/bin",
+            "/Users/testuser/.claude/local",
+            "/Users/testuser/.opencode/bin",
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",
+          ].join(":"),
+        );
+      }),
+  );
+
+  it.effect("does not apply the POSIX known CLI directories fallback on Windows", () =>
+    Effect.gen(function* () {
+      const env: NodeJS.ProcessEnv = {
+        PATH: "C:\\Windows\\System32",
+        HOME: "/Users/testuser",
+      };
+
+      yield* runShellEnvironment({
+        env,
+        platform: "win32",
+        handler: () => "",
+      });
+
+      assert.notInclude(env.PATH ?? "", "/Users/testuser/.local/bin");
+      assert.notInclude(env.PATH ?? "", "/opt/homebrew/bin");
+      assert.notInclude(env.PATH ?? "", "/opt/homebrew/sbin");
+      assert.notInclude(env.PATH ?? "", "/home/linuxbrew/.linuxbrew/bin");
     }),
   );
 

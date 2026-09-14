@@ -220,6 +220,32 @@ const knownWindowsCliDirs = (env: NodeJS.ProcessEnv): ReadonlyArray<string> => [
   ),
 ];
 
+// Unlike Windows, POSIX has no fallback once the login-shell probe comes up
+// empty: readLoginShellEnvironment spawns `$SHELL -ilc` and waits up to
+// LOGIN_SHELL_TIMEOUT, but a slow or noisy shell init (nvm's lazy-load, a
+// conda/miniconda "conda init" block, oh-my-zsh plugins) can make it time out
+// or return without a usable PATH, and the launchctl fallback only covers
+// macOS and only carries whatever launchd already knows. Mirror
+// knownWindowsCliDirs so well-known POSIX CLI install locations - including
+// Homebrew's sbin and Linuxbrew's prefix - still land on PATH in that case.
+const knownPosixCliDirs = (
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform,
+): ReadonlyArray<string> => [
+  ...trimNonEmpty(env.HOME).pipe(
+    Option.match({
+      onNone: () => [],
+      onSome: (value) => [
+        `${value}/.local/bin`,
+        `${value}/.claude/local`,
+        `${value}/.opencode/bin`,
+      ],
+    }),
+  ),
+  ...(platform === "darwin" ? ["/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin"] : []),
+  ...(platform === "linux" ? ["/home/linuxbrew/.linuxbrew/bin"] : []),
+];
+
 const startMarker = (name: string) => `__T3CODE_ENV_${name}_START__`;
 const endMarker = (name: string) => `__T3CODE_ENV_${name}_END__`;
 
@@ -443,6 +469,9 @@ const installPosixEnvironment = Effect.fn("desktop.shellEnvironment.installPosix
         : Option.none<string>();
     const mergedPath = mergePaths(config.platform, [
       trimNonEmpty(shellEnvironment.PATH).pipe(Option.orElse(() => launchctlPath)),
+      trimNonEmpty(
+        knownPosixCliDirs(config.env, config.platform).join(pathDelimiter(config.platform)),
+      ),
       readEnvPath(config.env),
     ]);
 
