@@ -74,7 +74,10 @@ export const make = Effect.gen(function* () {
         return { kind: "unavailable", reason: "invalidResponse" } satisfies XcodeCloudUsage;
       }
       const checkedAt = DateTime.formatIso(yield* DateTime.now);
-      return yield* Effect.try(() => parseXcodeCloudUsage(stdout.text, checkedAt)).pipe(
+      return yield* Effect.try({
+        try: () => parseXcodeCloudUsage(stdout.text, checkedAt),
+        catch: (): "invalidResponse" => "invalidResponse",
+      }).pipe(
         Effect.orElseSucceed((): XcodeCloudUsage => ({
           kind: "unavailable",
           reason: "invalidResponse",
