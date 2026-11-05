@@ -39,6 +39,7 @@ import {
 } from "../ui/alert-dialog";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { XcodeCloudUsageCard } from "./XcodeCloudUsageCard";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 
@@ -402,5 +403,19 @@ export function UsageLimitsSection({
       ];
     }),
   );
-  return <UsageLimitsPooled presentations={selected} now={now} cursorPrompt={cursorPrompt} />;
+  return (
+    <div className="flex flex-col gap-8">
+      <UsageLimitsPooled presentations={selected} now={now} cursorPrompt={cursorPrompt} />
+      {[...selected].map(([environmentId, presentation]) =>
+        presentation.connection.phase === "connected" ? (
+          <XcodeCloudUsageCard
+            key={environmentId}
+            environmentId={environmentId}
+            environmentLabel={presentation.entry.target.label}
+            now={now}
+          />
+        ) : null,
+      )}
+    </div>
+  );
 }

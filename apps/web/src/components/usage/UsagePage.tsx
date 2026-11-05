@@ -1,3 +1,4 @@
+import { executeAtomQuery } from "@t3tools/client-runtime/state/runtime";
 import { ChatGptUsageButton } from "../settings/ChatGptUsageButton";
 import { usesChatGptSharing } from "@t3tools/shared/usageLimits";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
@@ -106,6 +107,26 @@ import {
   saveUsagePagePreferences,
   type UsagePagePreferences,
 } from "./usagePagePreferences";
+
+async function refreshXcodeCloudUsage(environmentId: EnvironmentId) {
+  const query = serverEnvironment.xcodeCloudUsage({ environmentId, input: {} });
+  const connection = environmentPresentations.presentationAtom(environmentId);
+  const controller = new AbortController();
+  const abortWhenDisconnected = () => {
+    if (appAtomRegistry.get(connection)?.connection.phase !== "connected") controller.abort();
+  };
+  const unsubscribe = appAtomRegistry.subscribe(connection, abortWhenDisconnected);
+  abortWhenDisconnected();
+  appAtomRegistry.refresh(query);
+  try {
+    await executeAtomQuery(appAtomRegistry, query, {
+      reportFailure: false,
+      signal: controller.signal,
+    });
+  } finally {
+    unsubscribe();
+  }
+}
 
 function isUsageMetric(value: string | null | undefined): value is UsageMetric {
   return METRIC_OPTIONS.some((option) => option.value === value);
@@ -259,7 +280,11 @@ export function UsagePage() {
           if (presentation.connection.phase === "connected" && presentation.serverConfig !== null) {
             return refreshUsageLimits(
               environmentId,
-              () => refreshProviders({ environmentId, input: {} }),
+              () =>
+                Promise.all([
+                  refreshProviders({ environmentId, input: {} }),
+                  refreshXcodeCloudUsage(environmentId),
+                ]),
               automatic,
               afterPending,
             );

@@ -1327,6 +1327,11 @@ export function createServerEnvironmentAtoms<R, E>(
       label: "environment-data:server:scheduled-tasks:live",
       tag: WS_METHODS.scheduledTasksSubscribe,
     }),
+    xcodeCloudUsage: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:xcode-cloud-usage",
+      tag: WS_METHODS.serverGetXcodeCloudUsage,
+      staleTimeMs: 60_000,
+    }),
     // A cold transcript scan is measured in seconds, so keep the result around
     // long enough that switching windows or re-rendering does not rescan.
     usageSummary: createEnvironmentRpcQueryAtomFamily(runtime, {
