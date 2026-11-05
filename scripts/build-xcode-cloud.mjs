@@ -88,8 +88,15 @@ try {
   ) {
     throw new Error("The customization branch must contain a linear series of feature commits.");
   }
-  run("git", ["fetch", "--no-tags", config.upstreamRepository, upstream]);
-  const target = run("git", ["rev-parse", "FETCH_HEAD^{commit}"], root, process.env, true);
+  const upstreamRef = `refs/t3-custom-upstream/${upstream}`;
+  run("git", [
+    "fetch",
+    "--no-tags",
+    "--no-write-fetch-head",
+    config.upstreamRepository,
+    `${upstream}:${upstreamRef}`,
+  ]);
+  const target = run("git", ["rev-parse", `${upstreamRef}^{commit}`], root, process.env, true);
   const id = `${target.slice(0, 12)}-${source.slice(0, 12)}`;
   const checkout = NodePath.join(NodePath.dirname(root), `xcode-cloud-build-${id}`);
   const output = NodePath.resolve(values.output ?? NodePath.join(root, "release", id));
