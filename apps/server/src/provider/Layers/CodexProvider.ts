@@ -39,6 +39,7 @@ import {
   type ServerProviderDraft,
 } from "../providerSnapshot.ts";
 import { expandHomePath } from "../../pathExpansion.ts";
+import { resolveCodexProjectProfileArgs } from "./codexProjectProfiles.ts";
 import { makeUnavailableUsageLimits } from "../providerUsageLimits.ts";
 import {
   codexRateLimitsFailureMessage,
@@ -376,9 +377,21 @@ export const withCodexAppServerClient = Effect.fn("withCodexAppServerClient")(fu
     ...input.environment,
     ...(resolvedHomePath ? { CODEX_HOME: resolvedHomePath } : {}),
   };
+  const projectProfileArgs = yield* resolveCodexProjectProfileArgs({
+    cwd: input.cwd,
+    environment: { ...process.env, ...environment },
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new CodexErrors.CodexAppServerSpawnError({
+          command: `${input.binaryPath} app-server`,
+          cause,
+        }),
+    ),
+  );
   const spawnCommand = yield* resolveSpawnCommand(
     input.binaryPath,
-    codexAppServerArgs(input.launchArgs),
+    codexAppServerArgs(input.launchArgs, projectProfileArgs),
     { env: environment, extendEnv: true },
   );
   const child = yield* spawner

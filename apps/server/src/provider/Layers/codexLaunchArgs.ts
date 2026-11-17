@@ -9,10 +9,10 @@ export const resolveCodexLaunchArgs = (
 
 const codexLaunchArgv = (launchArgs?: string): ReadonlyArray<string> => tokenizeCliArgs(launchArgs);
 
-export const codexAppServerArgs = (launchArgs?: string) => [
-  "app-server",
-  ...codexLaunchArgv(launchArgs),
-];
+export const codexAppServerArgs = (
+  launchArgs?: string,
+  projectProfileArgs: ReadonlyArray<string> = [],
+) => ["app-server", ...projectProfileArgs, ...codexLaunchArgv(launchArgs)];
 
 export const codexExecLaunchArgs = (launchArgs?: string) => {
   const args = codexLaunchArgv(launchArgs);
@@ -41,7 +41,8 @@ export const codexExecLaunchArgs = (launchArgs?: string) => {
 export const codexSessionAppServerArgs = (
   appServerArgs: ReadonlyArray<string> | undefined,
   launchArgs: string | undefined,
+  projectProfileArgs: ReadonlyArray<string> = [],
 ) => {
-  const launchAppServerArgs = codexAppServerArgs(launchArgs);
+  const launchAppServerArgs = codexAppServerArgs(launchArgs, projectProfileArgs);
   return appServerArgs ? [...launchAppServerArgs, ...appServerArgs] : launchAppServerArgs;
 };
