@@ -4,6 +4,37 @@ For one account, use the default Codex provider with your normal Codex login.
 [Provider setup](./install.md#providers) covers installation, Settings > Providers,
 and custom binaries or environment variables.
 
+## Select a workflow profile by project
+
+On the environment's machine, create `t3-project-profiles.json` in the Codex
+instance's effective `CODEX_HOME`. A shadow home needs the same file or a symlink
+to it. Mappings use absolute repository paths and also apply to that repository's
+linked worktrees and subdirectories. Unmapped repositories keep their settings.
+
+```json
+{
+  "projects": [{ "root": "/path/to/native-app", "profile": "lean-ios" }],
+  "profiles": {
+    "lean-ios": {
+      "instructions": "Implement routine iOS work in the main agent. Keep required review and app verification.",
+      "skills": [{ "name": "hallmark", "enabled": false }]
+    }
+  }
+}
+```
+
+This selects workflow instructions and skill visibility only. It does not load
+Codex's named TOML profile files or change model, reasoning, permissions, or
+project trust. The profile replaces the complete `developer_instructions` value
+and `skills.config` array; include any existing entries you want to retain.
+Explicit Codex launch arguments take precedence. Invalid registry contents report
+a startup error. Missing registry files and nonexistent mapped roots are skipped;
+unreadable Git metadata produces a warning and no profile for that repository.
+New sessions use the current profile. Existing conversations can retain earlier
+instructions when resumed, so start a new thread after changing a profile.
+Remove a project's mapping to stop applying it. Skill discovery uses the same
+selection as sessions.
+
 ## Use multiple accounts
 
 A shared Codex home with a shadow home lets work and personal accounts continue
